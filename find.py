@@ -34,35 +34,34 @@ def list_targetfile(file_path, target):                        #定义寻找内�
     f.close()
 
 
-def find_target(file_path, target):
-    logfilename = "result.log"                           #定义寻找文件中的关键字行数以及在该行中的位置
-    f = open(file_path,encoding='utf-8')
-    f1 = open(logfilename,'w')
+def find_target(file_path, target):                  
     line_number = 1
-    for each_line in f:
-        count = each_line.count(target)
-        begin = each_line.find(target)
-        if begin != -1:
-            begin_list = []
-            while begin != -1:
-                begin_list.append(begin)
-                begin = each_line.find(target, begin+1)
-            begin_str = ''
-            for each in begin_list:
-                begin_str = begin_str + str(each) + 'st '
-            print('Appeared at the %scharacter of line %d, totally %d times.' % (begin_str, line_number, count))    
-            f1.writelines('Appeared at the %scharacter of line %d, totally %d times.' % (begin_str, line_number, count))
+    with open(file_path,encoding='utf-8') as f1 , open('result.log','a+',encoding='utf-8') as f2:
+        for each_line in f1:
+            count = each_line.count(target)
+            begin = each_line.find(target)
+            if begin != -1:
+                begin_list = []
+                while begin != -1:
+                    begin_list.append(begin)
+                    begin = each_line.find(target, begin+1)
+                begin_str = ''
+                for each in begin_list:
+                    begin_str = begin_str + str(each) + 'st '            
+                f2.writelines('Appeared at the %scharacter of line %d, totally %d times.' % (begin_str, line_number, count)+'\n')
             
-        line_number += 1
-    f.close()
-    f1.close()
+            line_number += 1
+        f1.close()
+        f2.close()
 
 target_file_list = []
 for i in file_path_list:
-    list_targetfile(i, target)                                 #获得内容中包含关键字的文件路径
+    list_targetfile(i, target)                                 
 
 for i in target_file_list:
-    print(i)
-    print()
+    f = open('result.log','a+',encoding='utf-8')
+    f.writelines(i+'\n')
+    f.writelines('\n')
     find_target(i, target)
-    print('----------------------------------------------')
+    f.writelines('----------------------------------------------'+'\n')
+    f.close()
