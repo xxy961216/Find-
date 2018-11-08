@@ -8,17 +8,19 @@ import quopri
 from time import ctime
 import sys,getopt
 reload(sys)
-sys.setdefaultencoding('utf-8') 
+sys.setdefaultencoding('utf-8')
+import resource
+resource.setrlimit(resource.RLIMIT_AS, (100*1048576L, -1L)) 
 
-opts, args = getopt.getopt(sys.argv[1:], "hf:t:l:dc")
+opts, args = getopt.getopt(sys.argv[1:], "hf:t:l:i:dc")
 m0=0
 file_path = ""
 target = ""
 loglocation=""
-
+dirfile=""
 for opt, arg in opts:
    if opt == "-h":
-      print 'Msg_search.py -f <file_path> -t <target> -l <loglocation> -d <header> -c <content>'
+      print 'Msg_search.py -f <file_path> -t <target> -l <loglocation> -i <dirfile> -d <header> -c <content>'
       sys.exit()
    elif opt == "-f":
       file_path = arg
@@ -27,50 +29,28 @@ for opt, arg in opts:
       target_r=re.compile(target)
    elif opt == "-l":
       loglocation = arg
+   elif opt == "-i":
+      dirfile = arg
    elif opt == "-d":
       m0=1
    elif opt == "-c":
       m0=2
 
 def file_location(file_path):
-                                     
-    os.chdir(file_path)
-    content_list = os.listdir(os.curdir)
-    for each in content_list:
-        if os.path.splitext(each)[1] == '.msg':
-            file_path_list.append(os.getcwd() + os.sep + each)
-        if os.path.isdir(each):                               
-
-
-            file_location(each)
-            os.chdir(os.pardir)
-
+        f=io.open(dirfile+'/location.txt','a+')           
+        os.chdir(file_path)
+        content_list = os.listdir(os.curdir)
+        for each in content_list:
+            if os.path.splitext(each)[1] == '.msg':
+                f.writelines(u'%s'%(os.getcwd() + os.sep + each)+'\n')
+            if os.path.isdir(each):                               
+                file_location(each)
+                os.chdir(os.pardir)                              
     
-file_path_list = []
-file_location(file_path)                                  
 
-
-def list_targetfile(file_path, target):      
-                    
-    f = io.open(file_path,'rb')
-    count_list = []
-    
-    try:
-        for each_line in f:
-            each_line=quopri.decodestring(each_line)
-            count = each_line.count(target)
-            count_list.append(count)
-        
-    except:
-        pass
-    if count_list.count(0) != len(count_list):
-        target_file_list.append(file_path)
-    f.close()
-
-
-threads = []
+def clear_cache():
+   os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches' ")
  
-
 
 def find_target(file_path, target):
                      
@@ -92,11 +72,9 @@ def find_target(file_path, target):
                    begin_str = ''
                    for each in begin_list:
                        begin_str = begin_str + str(each) + 'st '            
-                   f2.writelines(u'[-]Appeared at the %scharacter of line %d, totally %d times.' % (begin_str, line_number, count)+'\n')
+                   f2.writelines(u'[-]Appeared at the %scharacter of line %d, totally %d times in %s' % (begin_str,line_number,count,file_path)+'\n')
             except:
-               pass
-
-            
+               pass            
             
             line_number += 1
         f1.close()
@@ -113,40 +91,55 @@ def search_header(file_path, target):
             pass
         if (target0!=""):
             f2.writelines(u'[-]Appeared at the message header in '+file_path+'\n')
+        f1.close()
+        f2.close()
 
 def search_content(file_path, target):
     with io.open(file_path,'rb') as f1 , io.open(loglocation+'/result.log','a+',encoding='utf-8') as f2:
-        content=quopri.decodestring(f1.read())
-        result=re.findall(target_r,content)[0]
-        print result
+        try:
+            result=""
+            content=quopri.decodestring(f1.read())
+            result=re.findall(target_r,content)[0]
+        except:
+            pass
         if (result!=""):
             f2.writelines(u'[-]Appeared at the message content in '+file_path+'\n')
+        f1.close()
+        f2.close()
 
-target_file_list = [] 
+file_location(file_path)    
 
-for i in file_path_list:
-    list_targetfile(i, target)
          
 def f0():
-    for i in target_file_list:
-        f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
-        f.writelines(u'%s'%i+'\n') 
-        f.writelines(u'\n')
-        find_target(i,target)
-        f.writelines(u'----------------------------------------------'+'\n')
-        f.close()
+    with io.open(dirfile+'/location.txt') as l:
+        for i in l:
+            i=i.strip('\n')
+            f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
+            find_target(i,target)
+            clear_cache()
+            f.close()
+        l.close()
+        
 
 def f1():   
-    for i in target_file_list:
-        f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
-        search_header(i,target)    
-        f.close()
-
+    with io.open(dirfile+'/location.txt') as l:
+        for i in l:
+            i=i.strip('\n')
+            f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
+            search_header(i,target)   
+            clear_cache() 
+            f.close()
+        l.close()
+        
 def f2():
-    for i in target_file_list:
-        f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
-        search_content(i,target)
-        f.close()
+    with io.open(dirfile+'/location.txt') as l:
+        for i in l:
+            i=i.strip('\n')
+            f = io.open(loglocation+'/result.log','a+',encoding='utf-8')
+            search_content(i,target)
+            clear_cache()
+            f.close()
+        l.close()
 
 if __name__ == '__main__':
     if (m0==0):
@@ -158,4 +151,7 @@ if __name__ == '__main__':
     print("\n")
 
     print("[-]All over %s" %ctime())
+
+    os.remove(dirfile+'/location.txt')
+
 
